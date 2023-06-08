@@ -1,20 +1,25 @@
 import React, { useRef, useState } from 'react'
 import axios from '../config/axios'
 import Ffmpeg from 'fluent-ffmpeg'
+import { supabase } from '../config/supabaseClient'
 
 const MergeVideo = () => {
   const inputFileRef = useRef<HTMLVideoElement | null>(null)
-
   const [inputFile, setInputFile] = useState<File>()
-
   const [metadata, setMetadata] = useState<Ffmpeg.FfprobeData | null>(null)
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [result, setResult] = useState<string | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
+  const [fileUploadMsg1, setFileUploadMsg1] = useState<string | null>(null)
+  const [id1, setId1] = useState<string | null>(null)
 
-  const [errorMsg, setErrorMsg] = useState(null)
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
 
-
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>, ref: React.MutableRefObject<HTMLVideoElement | null>) => {
+  const onChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    ref: React.MutableRefObject<HTMLVideoElement | null>,
+    setState: React.Dispatch<React.SetStateAction<string | null>>,
+    setId: React.Dispatch<React.SetStateAction<string | null>>
+  ) => {
     const file = e.target.files?.item(0)
     if (file) {
       const fileReader = new FileReader()
@@ -25,6 +30,33 @@ const MergeVideo = () => {
         if (ref.current) {
           ref.current.src = src
         }
+      }
+
+      console.log('Uploading file')
+      setState('Uploading file, please wait...')
+      const { data, error } = await supabase.storage.from('video-bucket').upload(Date.now() + '-' + file.name, file)
+
+      if (error) {
+        console.log(error)
+        setState(error?.message || 'File upload failed')
+
+      } else {
+
+        setState('Fetching file ID...')
+        console.log('Fetching file ID')
+        const { data: filesData, error: listError } = await supabase.storage.from('video-bucket').list()
+
+        if (listError) {
+          console.log(listError)
+          setState(listError?.message || 'Fetching file id failed')
+        }
+
+        filesData?.forEach((file) => {
+          if (file.name === data?.path) {
+            setState(file.id)
+            setId(file.id)
+          }
+        })
       }
     }
   }
@@ -37,14 +69,14 @@ const MergeVideo = () => {
     formData.append('video', inputFile as Blob)
 
     try {
+      if (!id1) {
+        setErrorMsg('Please ensure file is uploaded before fetching metadata')
+        return
+      }
       setErrorMsg(null)
       setResult(null)
       setMetadata(null)
-      const response = await axios.post('/api/getMetaData', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
+      const response = await axios.post('/api/getMetaData', { id: id1 })
       console.log(response)
       setResult(response?.data?.message)
       const metadata: Ffmpeg.FfprobeData = response?.data?.data
@@ -70,11 +102,12 @@ const MergeVideo = () => {
                   type="file"
                   className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100 file:transition-all file:cursor-pointer file:shadow-sm file:my-2"
                   accept='video/mp4'
-                  onChange={(e) => { setInputFile(e.target.files?.[0]); onChange(e as React.ChangeEvent<HTMLInputElement>, inputFileRef) }}
+                  onChange={(e) => { setInputFile(e.target.files?.[0]); onChange(e as React.ChangeEvent<HTMLInputElement>, inputFileRef, setFileUploadMsg1, setId1) }}
                   required
                 />
               </label>
               <p className='ml-3'>{inputFile ? Math.round(inputFile.size / 1024 / 1024) + ' MB' : ''}</p>
+              <p className='ml-3'>{fileUploadMsg1}</p>
             </div>
           </div>
 

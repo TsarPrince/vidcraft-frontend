@@ -1,20 +1,33 @@
 import React, { useRef, useState } from 'react'
 import axios from '../config/axios'
+import { supabase } from '../config/supabaseClient'
 
 const MergeVideo = () => {
   const preFileRef = useRef<HTMLVideoElement | null>(null)
   const inputFileRef = useRef<HTMLVideoElement | null>(null)
 
-  const [preFile, setPreFile] = useState<File>()
-  const [inputFile, setInputFile] = useState<File>()
-  const [errorMsg, setErrorMsg] = useState(null)
-  const [result, setResult] = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [preFile, setPreFile] = useState<File | undefined>()
+  const [inputFile, setInputFile] = useState<File | undefined>()
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [result, setResult] = useState<string | null>(null)
+  const [loading, setLoading] = useState<boolean>(false)
+
+  const [fileUploadMsg1, setFileUploadMsg1] = useState<string | null>(null)
+  const [fileUploadMsg2, setFileUploadMsg2] = useState<string | null>(null)
+
+  const [id1, setId1] = useState<string | null>(null)
+  const [id2, setId2] = useState<string | null>(null)
 
   const NEXT_PUBLIC_SUPABASE_VIDEO_URL = process.env.NEXT_PUBLIC_SUPABASE_VIDEO_URL
 
 
-  const onChange = (e: React.ChangeEvent<HTMLInputElement>, ref: React.MutableRefObject<HTMLVideoElement | null>) => {
+  const onChange = async (
+    e: React.ChangeEvent<HTMLInputElement>,
+    ref: React.MutableRefObject<HTMLVideoElement | null>,
+    setState: React.Dispatch<React.SetStateAction<string | null>>,
+    setId: React.Dispatch<React.SetStateAction<string | null>>
+  ) => {
+
     const file = e.target.files?.item(0)
     if (file) {
       const fileReader = new FileReader()
@@ -25,6 +38,33 @@ const MergeVideo = () => {
         if (ref.current) {
           ref.current.src = src
         }
+      }
+
+      console.log('Uploading file')
+      setState('Uploading file, please wait...')
+      const { data, error } = await supabase.storage.from('video-bucket').upload(Date.now() + '-' + file.name, file)
+
+      if (error) {
+        console.log(error)
+        setState(error?.message || 'File upload failed')
+
+      } else {
+
+        setState('Fetching file ID...')
+        console.log('Fetching file ID')
+        const { data: filesData, error: listError } = await supabase.storage.from('video-bucket').list()
+
+        if (listError) {
+          console.log(listError)
+          setState(listError?.message || 'Fetching file id failed')
+        }
+
+        filesData?.forEach((file) => {
+          if (file.name === data?.path) {
+            setState(file.id)
+            setId(file.id)
+          }
+        })
       }
     }
   }
@@ -38,13 +78,14 @@ const MergeVideo = () => {
     formData.append('inputFile', inputFile as Blob)
 
     try {
+      if (!id1 || !id2) {
+        setErrorMsg('Please ensure that both files are uploaded before merging')
+        return;
+      }
+
       setErrorMsg(null)
       setResult(null)
-      const response = await axios.post('/api/merge', formData, {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      })
+      const response = await axios.post('/api/merge', { id1, id2 })
       console.log(response)
       setResult(response?.data?.data?.fileName)
     } catch (err: any) {
@@ -67,11 +108,12 @@ const MergeVideo = () => {
                   type="file"
                   className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-emerald-50 file:text-emerald-700 hover:file:bg-emerald-100 file:transition-all file:cursor-pointer file:shadow-sm file:my-2"
                   accept='video/mp4'
-                  onChange={(e) => { setPreFile(e.target.files?.[0]); onChange(e as React.ChangeEvent<HTMLInputElement>, preFileRef) }}
+                  onChange={(e) => { setPreFile(e.target.files?.[0]); onChange(e as React.ChangeEvent<HTMLInputElement>, preFileRef, setFileUploadMsg1, setId1) }}
                   required
                 />
               </label>
               <p className='ml-3'>{preFile ? Math.round(preFile.size / 1024 / 1024) + ' MB' : ''}</p>
+              <p className='ml-3'>{fileUploadMsg1}</p>
             </div>
 
             <div>
@@ -82,11 +124,12 @@ const MergeVideo = () => {
                   type="file"
                   className="block w-full text-sm text-slate-500 file:mr-4 file:py-2 file:px-4 file:rounded-full file:border-0 file:text-sm file:font-semibold file:bg-cyan-50 file:text-cyan-700 hover:file:bg-cyan-100 file:transition-all file:cursor-pointer file:shadow-sm file:my-2"
                   accept='video/mp4'
-                  onChange={(e) => { setInputFile(e.target.files?.[0]); onChange(e as React.ChangeEvent<HTMLInputElement>, inputFileRef) }}
+                  onChange={(e) => { setInputFile(e.target.files?.[0]); onChange(e as React.ChangeEvent<HTMLInputElement>, inputFileRef, setFileUploadMsg2, setId2) }}
                   required
                 />
               </label>
               <p className='ml-3'>{inputFile ? Math.round(inputFile.size / 1024 / 1024) + ' MB' : ''}</p>
+              <p className='ml-3'>{fileUploadMsg2}</p>
             </div>
           </div>
 
