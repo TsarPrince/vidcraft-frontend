@@ -1,14 +1,10 @@
 import React from 'react'
-import { supabase } from '../config/supabaseClient'
 
-
-type PageProps = {
-  bucketItems: File[] | null
-}
+import { BucketItemsPageProps } from '../types/pageProps.type'
 
 const NEXT_PUBLIC_SUPABASE_VIDEO_URL = process.env.NEXT_PUBLIC_SUPABASE_VIDEO_URL
 
-const ViewBucket = ({ bucketItems }: PageProps) => {
+const ViewBucket = ({ bucketItems }: BucketItemsPageProps) => {
   return (
     <div className='py-8 px-16'>
 

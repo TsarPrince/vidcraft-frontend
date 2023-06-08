@@ -46,7 +46,7 @@ const MergeVideo = () => {
         }
       })
       console.log(response)
-      setResult(response?.data?.message)
+      setResult(response?.data?.data?.fileName)
     } catch (err: any) {
       console.log(err)
       setErrorMsg(err.response?.data?.message || 'Some error occurred')

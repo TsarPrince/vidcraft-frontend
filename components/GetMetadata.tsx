@@ -1,12 +1,13 @@
 import React, { useRef, useState } from 'react'
 import axios from '../config/axios'
+import Ffmpeg from 'fluent-ffmpeg'
 
 const MergeVideo = () => {
   const inputFileRef = useRef<HTMLVideoElement | null>(null)
 
   const [inputFile, setInputFile] = useState<File>()
 
-  const [metadata, setMetadata] = useState(null)
+  const [metadata, setMetadata] = useState<Ffmpeg.FfprobeData | null>(null)
 
   const [errorMsg, setErrorMsg] = useState(null)
   const [result, setResult] = useState(null)
@@ -46,7 +47,8 @@ const MergeVideo = () => {
       })
       console.log(response)
       setResult(response?.data?.message)
-      setMetadata(response?.data?.data)
+      const metadata: Ffmpeg.FfprobeData = response?.data?.data
+      setMetadata(metadata)
     } catch (err: any) {
       console.log(err)
       setErrorMsg(err.response?.data?.message || 'Some error occurred')
@@ -58,8 +60,8 @@ const MergeVideo = () => {
     <div>
       <form onSubmit={(e) => { onSubmit(e) }}>
         <div className='flex flex-col justify-center items-center'>
-          <div className='py-8 w-full flex justify-center'>
 
+          <div className='py-8 w-full flex justify-center'>
             <div>
               <video className='h-64 my-8 mr-8 rounded-3xl ring-8 ring-cyan-400' ref={inputFileRef} controls></video>
               <label className="block">

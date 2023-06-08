@@ -1,6 +1,5 @@
-import { create } from 'domain'
-import type { GetServerSideProps, NextPage } from 'next'
-import React, { useRef, useState } from 'react'
+import type { NextPage } from 'next'
+import React, { useState } from 'react'
 import MergeVideo from '../components/MergeVideo'
 import BottomNavbar from '../components/BottomNavbar'
 import GetMetadata from '../components/GetMetadata'
@@ -9,12 +8,9 @@ import { supabase } from '../config/supabaseClient'
 import Head from 'next/head'
 
 type ActiveState = 'MergeVideo' | 'GetMetadata' | 'ViewBucket'
+import { BucketItemsPageProps } from '../types/pageProps.type'
 
-type PageProps = {
-  bucketItems: File[] | null
-}
-
-const Home: NextPage<PageProps> = ({ bucketItems }) => {
+const Home: NextPage<BucketItemsPageProps> = ({ bucketItems }) => {
   const [activeState, setActiveState] = useState<ActiveState>('MergeVideo')
 
   return (
@@ -38,7 +34,7 @@ const Home: NextPage<PageProps> = ({ bucketItems }) => {
 
 export default Home
 
-export const getStaticProps = async () => {
+export const getServerSideProps = async () => {
   const { data, error } = await supabase.storage.from('video-bucket').list('', {
     limit: 100,
     offset: 0,
